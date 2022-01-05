@@ -2,8 +2,13 @@ import numpy as np
 import pandas as pd
 import csv
 import codecs
+import sys
+import re
 
 
+###############################
+#            GLOVE            #
+###############################
 def convert_to_binary(embedding_path):
     f = codecs.open(embedding_path + ".txt", 'r', encoding='utf-8')
     wv = []
@@ -39,11 +44,69 @@ def load_word_emb_binary(embedding_file_name_w_o_suffix):
 def get_glove(sentence, model):
     return np.array([model.get(val, np.zeros(100)) for val in sentence.split()], dtype=np.float64)
 
+def test_glove():
+    #convert_to_binary("GloVe/glove.840B.300d")
+    model = load_word_emb_binary("GloVe/glove.840B.300d")
+    print(get_glove("testing", model))
 
-#convert_to_binary("GloVe/glove.840B.300d")
-model = load_word_emb_binary("GloVe/glove.840B.300d")
-print(get_glove("testing", model))
 
+###############################
+#           TW TEXT           #
+###############################
+# from https://gist.github.com/ppope/0ff9fa359fb850ecf74d061f3072633a
+
+FLAGS = re.MULTILINE | re.DOTALL
+
+def hashtag(text):
+    text = text.group()
+    hashtag_body = text[1:]
+    if hashtag_body.isupper():
+        result = " {} ".format(hashtag_body.lower())
+    else:
+        result = " ".join(["<hashtag>"] + re.split(r"(?=[A-Z])", hashtag_body, flags=FLAGS))
+    return result
+
+def allcaps(text):
+    text = text.group()
+    return text.lower() + " <allcaps>"
+
+
+def tokenize(text):
+    # Different regex parts for smiley faces
+    eyes = r"[8:=;]"
+    nose = r"['`\-]?"
+
+    # function so code less repetitive
+    def re_sub(pattern, repl):
+        return re.sub(pattern, repl, text, flags=FLAGS)
+
+    text = re_sub(r"https?:\/\/\S+\b|www\.(\w+\.)+\S*", "<url>")
+    text = re_sub(r"@\w+", "<user>")
+    text = re_sub(r"{}{}[)dD]+|[)dD]+{}{}".format(eyes, nose, nose, eyes), "<smile>")
+    text = re_sub(r"{}{}p+".format(eyes, nose), "<lolface>")
+    text = re_sub(r"{}{}\(+|\)+{}{}".format(eyes, nose, nose, eyes), "<sadface>")
+    text = re_sub(r"{}{}[\/|l*]".format(eyes, nose), "<neutralface>")
+    text = re_sub(r"/"," / ")
+    text = re_sub(r"<3","<heart>")
+    text = re_sub(r"[-+]?[.\d]*[\d]+[:,.\d]*", "<number>")
+    text = re_sub(r"#\S+", hashtag)
+    text = re_sub(r"([!?.]){2,}", r"\1 <repeat>")
+    text = re_sub(r"\b(\S*?)(.)\2{2,}\b", r"\1\2 <elong>")
+
+    ## -- I just don't understand why the Ruby script adds <allcaps> to everything so I limited the selection.
+    # text = re_sub(r"([^a-z0-9()<>'`\-]){2,}", allcaps)
+    text = re_sub(r"([A-Z]){2,}", allcaps)
+
+    return text.lower()
+
+
+text = "I TEST alllll kinds of #hashtags and #HASHTAGS, @mentions and 3000 (http://t.co/dkfjkdf). w/ <3 :) haha!!!!!"
+tokens = tokenize(text)
+print(tokens)
+
+#NEXT STEP
+#1. GONNA HAVE TO DO SOMETHING TO ACCOMODATE THE ABILITY TO TAKE SPACES IN GLOVE INPUT FUNCTION
+#2. WHEN USING TOKENIZE, JUST REMOVE THE BRACKETED THINGS I GUESS
 
 
 
