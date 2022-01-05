@@ -2,3 +2,6 @@
 *.txt
 ACCESSTOKENS.py
 *.log
+GloVe/
+data/
+venv/
