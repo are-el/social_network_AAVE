@@ -4,7 +4,11 @@ import csv
 import codecs
 import sys
 import re
+from more_itertools import sliced
+import explore_tweets
+import time
 
+#LOL THIS IS A SCRIPT
 
 ###############################
 #            GLOVE            #
@@ -48,6 +52,40 @@ def test_glove():
     #convert_to_binary("GloVe/glove.840B.300d")
     model = load_word_emb_binary("GloVe/glove.840B.300d")
     print(get_glove("testing", model))
+
+
+###############################
+#             CSV             #
+###############################
+
+def populate_tw_text():
+    # read dev set to dataframe
+    pd.set_option('display.max_columns', None)
+    df = pd.read_csv("data/dev.csv", usecols=['tweet_id','label'])
+    new_df = pd.DataFrame(columns=['tweet_id', 'tweet_text', 'label'])
+    CHUNK_SIZE = 100
+
+    index_slices = sliced(range(len(df)), CHUNK_SIZE)
+
+    #get tweet text via twitter API
+    for index_slice in index_slices:
+        chunk_df = df.iloc[index_slice]
+        ids = chunk_df['tweet_id'].to_list()
+        tweets = explore_tweets.get_tweet_list_from_ids(ids)
+        tmp_dict = {}
+        print(len(new_df))
+        for tweet in tweets:
+            tmp_dict['tweet_id'] = tweet.id
+            tmp_dict['tweet_text'] = tweet.text
+            #find row from chunk_df with id to retrieve lost label
+            row = chunk_df.loc[chunk_df['tweet_id'] == tweet.id]
+            tmp_dict['label'] = row['label']
+            new_df = new_df.append(tmp_dict, ignore_index=True)
+
+    print(new_df.head())
+    #write dataframe to csv to save
+    new_df.to_csv("data/dev_text.csv")
+
 
 
 ###############################
@@ -100,13 +138,10 @@ def tokenize(text):
     return text.lower()
 
 
-text = "I TEST alllll kinds of #hashtags and #HASHTAGS, @mentions and 3000 (http://t.co/dkfjkdf). w/ <3 :) haha!!!!!"
-tokens = tokenize(text)
-print(tokens)
+# text = "I TEST alllll kinds of #hashtags and #HASHTAGS, @mentions and 3000 (http://t.co/dkfjkdf). w/ <3 :) haha!!!!!"
+# tokens = tokenize(text)
+# print(tokens)
 
 #NEXT STEP
 #1. GONNA HAVE TO DO SOMETHING TO ACCOMODATE THE ABILITY TO TAKE SPACES IN GLOVE INPUT FUNCTION
 #2. WHEN USING TOKENIZE, JUST REMOVE THE BRACKETED THINGS I GUESS
-
-
-
